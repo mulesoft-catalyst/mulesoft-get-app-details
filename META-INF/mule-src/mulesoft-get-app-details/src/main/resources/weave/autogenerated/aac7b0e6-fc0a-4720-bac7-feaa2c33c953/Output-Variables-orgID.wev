@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_aac7b0e6_fc0a_4720_bac7_feaa2c33c953_Output_Variables_orgID = Any
+

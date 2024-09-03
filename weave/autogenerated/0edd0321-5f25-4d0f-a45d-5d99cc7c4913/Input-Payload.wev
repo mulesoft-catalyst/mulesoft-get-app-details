@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_0edd0321_5f25_4d0f_a45d_5d99cc7c4913_Input_Payload = {| Response: String |}
+

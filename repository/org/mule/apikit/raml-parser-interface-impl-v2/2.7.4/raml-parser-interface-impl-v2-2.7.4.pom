@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <parent>
+        <groupId>org.mule.apikit</groupId>
+        <artifactId>raml-parser-interface-parent</artifactId>
+        <version>2.7.4</version>
+    </parent>
+
+    <artifactId>raml-parser-interface-impl-v2</artifactId>
+    <name>RAML parser v2 interface implementation</name>
+    <modelVersion>4.0.0</modelVersion>
+
+    <properties>
+        <licensePath>../LICENSE_HEADER.txt</licensePath>
+        <formatterConfigPath>../formatter.xml</formatterConfigPath>
+        <sonar.jacoco.reportPaths>../target/jacoco.exec</sonar.jacoco.reportPaths>
+
+        <raml.parser.2.version>1.0.44-15</raml.parser.2.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.raml</groupId>
+            <artifactId>raml-parser-2</artifactId>
+            <version>${raml.parser.2.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mule.apikit</groupId>
+            <artifactId>raml-parser-interface</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mule.runtime</groupId>
+            <artifactId>mule-metadata-model-json</artifactId>
+            <version>${mule.metadata.api.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+    <dependencyManagement>
+        <dependencies>
+            <!-- W-14306521: Bump because the version provided by mule-metadata-model-json is too old. -->
+            <!-- This is a cosmetic bump in order to alleviate false positives by static analysis tools. It does not -->
+            <!-- affect the org.json version used by mule-metadata-model-json during execution (that will be decided -->
+            <!-- by the mule runtime). -->
+            <dependency>
+                <artifactId>json</artifactId>
+                <groupId>org.json</groupId>
+                <version>20231013</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+</project>

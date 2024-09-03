@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:vm="http://www.mulesoft.org/schema/mule/vm"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:compression="http://www.mulesoft.org/schema/mule/compression"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/compression http://www.mulesoft.org/schema/mule/compression/current/mule-compression.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd">
+	<flow name="writeJarToDisk" doc:id="76520ce7-a6a0-4790-be91-64be0852c1e7" >
+		<file:write doc:name="Write Jar File" doc:id="81f35183-1ebd-4fa6-88df-40c8ecb12718" config-ref="File_Config" path="#[p('filePathOnDisk.outputOrgDirectory') ++ vars.orgID ++ p('filePathOnDisk.outputJarSrcDirectory') ++ vars.jarFilePath]"/>
+	</flow>
+	<flow name="extractJarFile" doc:id="b8b1505e-085f-423c-9309-3719e4e77c71" >
+		<file:read doc:name="Read Jar File" doc:id="c8b4f37b-53cc-4ea2-9347-04faf610e428" config-ref="File_Config" path="#[p('filePathOnDisk.outputOrgDirectory') ++ vars.orgID ++ p('filePathOnDisk.outputJarSrcDirectory') ++ vars.jarFilePath]"/>
+	<compression:extract doc:name="Extract"  >
+		<compression:extractor >
+			<compression:zip-extractor />
+		</compression:extractor>
+	</compression:extract>
+		<foreach doc:name="For Each"  collection="#[dw::Core::entriesOf(payload)]">
+	  <choice doc:name="Choice" doc:id="6d4d1318-ed56-4f4e-98ca-e68827fa8b5c" >
+				<when expression='#[(payload.key endsWith "classloader-model.json") and (payload.key contains "mule-artifact")]'>
+					<file:write doc:name='Extract "classloader-model.json" File' config-ref="File_Config" path="#[p('filePathOnDisk.outputOrgDirectory') ++ vars.orgID ++ p('filePathOnDisk.outputClsLdrSrcDirectory') ++ vars.clsFilePath]">
+	    <file:content><![CDATA[#[payload.value]]]></file:content>
+	  </file:write>
+				</when>
+			</choice>
+	</foreach>
+		<file:delete doc:name="Delete Jar File" doc:id="7f1e7f16-6e8b-4dda-b800-7a32baa31ccf" config-ref="File_Config" path="#[p('filePathOnDisk.outputOrgDirectory') ++ vars.orgID ++ p('filePathOnDisk.outputJarSrcDirectory') ++ vars.jarFilePath]"/>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="3105d6bd-9c55-4cdc-8c9c-405d6c567f2b" type="COMPRESSION:INVALID_ARCHIVE">
+				<file:delete doc:name="Delete" doc:id="678ee04d-0945-42b1-87a2-13b556b74ae4" config-ref="File_Config" path="#[p('filePathOnDisk.outputOrgDirectory') ++ vars.orgID ++ p('filePathOnDisk.outputJarSrcDirectory') ++ vars.jarFilePath]"/>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="readDependencyVersionsandSendResponse" doc:id="f70cd34d-c980-4ca1-a021-ad4dbe8222ea" >
+		<file:read doc:name='Read "classloader-model.json" File' doc:id="540a488c-a443-4762-aa8c-1764c3a58d3a" path="#[p('filePathOnDisk.outputOrgDirectory') ++ vars.orgID ++ p('filePathOnDisk.outputClsLdrSrcDirectory') ++ vars.clsFilePath]" config-ref="File_Config"/>
+		<set-variable value='#[[]]' doc:name="Set Variable" doc:id="5f8db6c9-30ca-4636-8fde-1b38b1a89cc3" variableName="applicationReport"/>
+		<ee:transform doc:name="Transform Message" doc:id="fcc4e0a2-898c-44b0-acbd-62bcd19b2829" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="appDependencyDetails" ><![CDATA[%dw 2.0
+output application/java
+---
+payload.dependencies map ((item, index) -> ({
+    ApplicationName:vars.appName,
+    AppID:vars.appId,
+    DeploymentType:vars.depType,
+    ApplicationStatus:vars.applicationStatus,
+    groupId:item.artifactCoordinates.groupId,
+    artifactId:item.artifactCoordinates.artifactId,
+    version:item.artifactCoordinates.version
+    //AppArtifactID:payload.artifactCoordinates.artifactId
+    }
+ ) 
+)]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<foreach doc:name="For Each Application Dependency" doc:id="9f2bb05b-02a6-4923-b9d8-53f7d97481cc" collection="#[vars.appDependencyDetails]">
+			<flow-ref doc:name="Generate a CSV report" doc:id="5bdd9a81-8a1e-46f5-88df-66a1d3df2312" name="generateCSVReportForThatDependency"/>
+		</foreach>
+		<logger level="TRACE" doc:name="Logger" doc:id="00098609-ae5c-41c1-be77-fb977eccf0f9" message="#[vars.applicationReport]" />
+		<set-payload value="#[vars.applicationReport]" doc:name="Set Payload" doc:id="9ef72f86-82e4-49fc-83ec-ff66d12799ed" />
+	</flow>
+	<flow name="mulesoft-process-filesFlow" doc:id="3af5c476-630c-4832-8a76-b941a60f29eb" maxConcurrency="1">
+		<vm:listener doc:name="Listener" doc:id="e025f231-f8fb-4c97-bedc-254e3c5ee30f" config-ref="VM_Config" numberOfConsumers="1" queueName="appendToEnvFile"/>
+		<ee:transform doc:name="Transform Message" doc:id="1c37ea6f-1226-46f1-9768-976b6d459552" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/csv header=false
+---
+payload.outputCSVObject]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="filePath" ><![CDATA[%dw 2.0
+output application/java
+---
+p('filePathOnDisk.outputOrgDirectory') ++ (payload.orgID as String) ++ p('filePathOnDisk.separator') ++ (payload.outputCSVFileName as String) ++ p('filePathOnDisk.outputCSVFileExtension')]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<file:write doc:name="Append Applications to Existing Environment File" doc:id="ae41a7ba-519f-4d78-94a0-a174347cd81b" config-ref="File_Config" path="#[vars.filePath]" mode="APPEND"/>
+	</flow>
+	<flow name="compressFilesForThatOrg" doc:id="26701d96-a346-49bd-a55e-a8b265b2c5ab" >
+		<flow-ref doc:name="List all the Environment Files for that Org" doc:id="3bd605fb-bbb2-475b-9bf3-c338c925babe" name="listFilesForThatOrg"/>
+		<flow-ref doc:name="Read the Payload for the Listed Files" doc:id="f3cd72bf-70bd-4cc8-b4f3-b7010c8ab465" name="readPayloadForTheListedFiles"/>
+		<flow-ref doc:name="Archive All the Environment File into Org File" doc:id="88fca218-47d2-4bd9-8fed-11ff923d83ff" name="archiveFilesForThatOrg"/>
+	</flow>
+	<flow name="listFilesForThatOrg" doc:id="f06cdacb-07ff-413f-a71b-60b06fc95cdc" >
+		<file:list doc:name="List" doc:id="aebf1b4b-68fc-4f6a-9f05-31085adf5923" config-ref="File_Config" directoryPath="#[p('filePathOnDisk.outputOrgDirectory') ++ (vars.orgID as String) ++ &quot;/&quot;]">
+			<file:matcher filenamePattern="*.csv" />
+		</file:list>
+	</flow>
+	<flow name="readPayloadForTheListedFiles" doc:id="23e0d88c-c4ba-49ab-b1a5-f1c8e4db7552" >
+		<ee:transform doc:name="Transform Message" doc:id="65794f53-c862-4f1d-801e-4ee01df01920">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+{(payload map (
+	(item, index) -> 
+	(item.attributes.fileName) : item.payload.^raw))}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="archiveFilesForThatOrg" doc:id="a14b1650-0ced-452f-a6d6-3db77ff8d9e8" >
+		<compression:archive doc:name="Archive" doc:id="74097fa3-4359-4da8-a9b3-d05f046d39c1" >
+			<compression:archiver >
+				<compression:zip-archiver />
+			</compression:archiver>
+		</compression:archive>
+		<file:write doc:name="Write" doc:id="1bb05572-3c7b-4fb6-9de6-8607d62f4f81" config-ref="File_Config" path="#[p('filePathOnDisk.outputOrgDirectory') ++ vars.orgID ++ &quot;/&quot; ++ vars.orgID ++ &quot;.zip&quot;]"/>
+	</flow>
+	<flow name="readArchiveFilesForThatOrg" doc:id="0d80c649-37ee-460a-9e82-60249aac0e3a" >
+		<file:read doc:name="Read the Archive File for that Org" doc:id="ded0a9c9-f02d-4cda-b179-de160c8a0714" config-ref="File_Config" path="#[p('filePathOnDisk.outputOrgDirectory') ++ vars.orgID ++ &quot;/&quot; ++ vars.orgID ++ &quot;.zip&quot;]"/>
+	</flow>
+	<flow name="generateCSVReportForThatDependency" doc:id="187c46ac-14a9-4baf-a6e2-72cee0ff87e6" >
+		<ee:transform doc:name="Check If Dependency is A Mulesoft Extension" doc:id="49851f40-fa20-4fde-8b3c-8616e3f5ab8c" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="isDependencyExtension" ><![CDATA[%dw 2.0
+output application/java
+var versionAvailableForExtensionAssets = p("extensionsProvidedByMulesoft.types")
+---
+(versionAvailableForExtensionAssets contains payload.artifactId)
+and
+(payload.artifactId startsWith "mule-") 
+and
+(payload.artifactId endsWith "-extension")
+]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<choice doc:name="Choice" doc:id="4e838a74-43f0-4b3e-a58e-56e6d2405804" >
+			<when expression="#[vars.isDependencyExtension]">
+				<flow-ref doc:name="Generate Report for Extensions" doc:id="016077a8-7ddf-4a8b-adbc-b9b716e2aecf" name="generateCSVReportForExtensions"/>
+			</when>
+			<otherwise >
+				<flow-ref doc:name="Generate Report for Connectors" doc:id="4539db20-bf27-4890-83bc-d0e69d495e41" name="generateCSVReportForConnectors" />
+			</otherwise>
+		</choice>
+	</flow>
+	
+</mule>

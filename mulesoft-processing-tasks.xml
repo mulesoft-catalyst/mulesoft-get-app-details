@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:vm="http://www.mulesoft.org/schema/mule/vm"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+	<flow name="checkOrgProcessed" doc:id="3297d96f-d7bb-4105-a2e0-1fd7b98d1b49" >
+<try doc:name="Try" doc:id="0ca89f7d-7a55-47ec-a704-9617a8c1bbeb" >
+			<flow-ref doc:name="Check If Org is Already Processed" doc:id="4afcb986-d136-41a6-b06b-f79bccfcdff7" name="getOrgDetailsFrmObjectStore" />
+			<set-variable value="#[true]" doc:name="Set orgProcessed Variable" doc:id="184f8b65-71b1-4050-a6f4-292eafffa5cc" variableName="orgProcessed"/>
+			<error-handler >
+				<on-error-continue enableNotifications="true" logException="false" doc:name="On Error Continue" doc:id="2eaa3f79-94c5-4786-ae01-b2a22100b308" type="OS:KEY_NOT_FOUND, OS:STORE_NOT_AVAILABLE">
+					<logger level="INFO" doc:name="Logger" doc:id="65fc9720-bf4a-41e7-b849-1015fa05427c" message="Org #[vars.orgID] not available. "/>
+				</on-error-continue>
+			</error-handler>
+		</try>	</flow>
+	<flow name="extractAndSetVariables" doc:id="ca2d58be-1a24-4387-836c-4403f60a9057" >
+	        <ee:transform doc:name="Initialize OrgID and Other Variables" doc:id="a6bf59ae-b419-478a-af24-c39704738002">
+            <ee:message />
+            <ee:variables>
+                <ee:set-variable variableName="orgID"><![CDATA[attributes.headers.orgID]]></ee:set-variable>
+                <ee:set-variable variableName="bToken"><![CDATA[attributes.headers.bToken default ""]]></ee:set-variable>
+				<ee:set-variable variableName="orgProcessed" ><![CDATA[%dw 2.0
+output application/java
+---
+false]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+	</flow>
+	<flow name="generateReportForThatOrg" doc:id="46df721b-2e87-4071-a787-4bf398ad7dee" >
+		<flow-ref doc:name="Validate Org and Initialize Environments" doc:id="a5d7159b-665b-44eb-bf78-cd204c92d0c2" name="validateOrgInitializeEnvVariable"/>
+		<flow-ref doc:name="Populate Initial Status Report for the Org" doc:id="bc021249-a3b8-49a3-a354-a12fe3321ebe" name="createOrgStatusData"/>
+		<flow-ref doc:name="Store Org Status Report in Object Store" doc:id="cdf034ab-0764-4ba8-a523-d420b106ce81" name="storeOrgStatusInObjectStore"/>
+		<flow-ref doc:name="Process All Environment Applicaitons" doc:id="cc88d77e-d2b5-417f-998e-f2a3ca5c9b33" name="processApplicaitonsForAllEnvironments"/>
+	</flow>
+	<flow name="validateOrgInitializeEnvVariable" doc:id="be0dbf8a-6af9-4f8f-bcb0-e51e16d8c472" >
+		<http:request method="GET" doc:name="Request" doc:id="23e116cc-07cc-4c3b-b789-8c8011e5758c" config-ref="AnypointPlatform_HTTP_Request_configuration" path="#[p('anypointplatform.csorgpath') ++ vars.orgID as String ++ p('anypointplatform.environments')]"/>
+		<ee:transform doc:name="set env Variables" doc:id="febd604b-6dde-4b69-a27c-43ff229f7f22" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="environmentsWithName" ><![CDATA[%dw 2.0
+output application/java
+---
+payload.data map (
+    value, index
+    ) -> 
+    {
+    id:value.id as String,
+    name:value.name as String
+}]]></ee:set-variable>
+				<ee:set-variable variableName="environments" ><![CDATA[%dw 2.0
+output application/java
+var flagToFilterEnvironment = p("anypointplatform.filterEnvironments")
+var environmentsToBeProcessed = p("anypointplatform.environmentsToBeProcessed") 
+var allAvailableEnvironments = payload.data map (value, index) -> value.id as String
+var filteredEnvironments = allAvailableEnvironments filter ((item, index) -> environmentsToBeProcessed contains item)
+---
+if(flagToFilterEnvironment) filteredEnvironments else allAvailableEnvironments]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="30996cb2-c2e9-4abb-a476-3ef3d0989cdc" message="#[vars.environments]"/>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="b82d4a48-94af-41ce-b000-1fc1f54ad498" type="HTTP:UNAUTHORIZED">
+				<ee:transform doc:name="Transform Message" doc:id="6913d76d-b808-42c6-b11f-a25321c46e78" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+Response: "Check Org ID " ++ vars.orgID as String ++ " and Bearer Token " ++ vars.bToken as String
+]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="processApplicaitonsForAllEnvironments" doc:id="36e5f93b-2fcc-498a-8b29-408d98b67406" >
+		<ee:transform doc:name="Transform Message" doc:id="89b5bc50-165b-4c03-998c-f9466f4e937b" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="envApplicationsAsArray" ><![CDATA[%dw 2.0
+output application/java
+var envApplications = vars.envApplications
+var removeOrgID = namesOf(envApplications) filter ((item, index) -> (item == "orgID"))
+---
+envApplications -- removeOrgID as Array]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<foreach doc:name="For Each Environments" doc:id="efb3a196-00e9-45d4-902d-f0782b374a3a" collection="#[vars.envApplicationsAsArray]">
+			<ee:transform doc:name="Extract &amp; Set Vaiables to Download artifact" doc:id="518c67df-b561-43ca-bdf9-788e7465f0e2" >
+				<ee:message >
+				</ee:message>
+				<ee:variables >
+					<ee:set-variable variableName="ch1Apps" ><![CDATA[%dw 2.0
+output application/java
+var orgID = vars.orgID
+var env = namesOf(payload)[0]
+var nameOfTheEnvironment = ((vars.environmentsWithName filter ((item, index) -> item.id == env)).name)[0] as String
+---
+payload[0].ch1Apps map (
+    (item, index) -> 
+    {
+        orgID: orgID,
+        environment : env,
+        deploymentType: "CH1",
+        bToken: vars.bToken,
+        name: item.artifact.name,
+        fileName: item.artifact.fileName,
+        nameOfTheEnvironment: nameOfTheEnvironment,
+        applicationStatus: item.lastReportedStatus
+    }
+    
+)]]></ee:set-variable>
+					<ee:set-variable variableName="ch2Apps" ><![CDATA[%dw 2.0
+output application/java
+var orgID = vars.orgID
+var env = namesOf(payload)[0]
+var nameOfTheEnvironment = ((vars.environmentsWithName filter ((item, index) -> item.id == env)).name)[0] as String
+---
+payload[0].ch2Apps map (
+    (item, index) -> 
+    {
+        orgID: orgID,
+        environment : env,
+        deploymentType: "CH2",
+        bToken: vars.bToken,
+        name: item.artifact.name,
+        id: item.id,
+        nameOfTheEnvironment: nameOfTheEnvironment,
+        applicationStatus: item.application.status
+    }    
+)]]></ee:set-variable>
+					<ee:set-variable variableName="rtfApps" ><![CDATA[%dw 2.0
+output application/java
+var orgID = vars.orgID
+var env = namesOf(payload)[0]
+var nameOfTheEnvironment = ((vars.environmentsWithName filter ((item, index) -> item.id == env)).name)[0] as String
+---
+payload[0].rtfApps map (
+    (item, index) -> 
+    {
+        orgID: orgID,
+        environment : env,
+        deploymentType: "RTF",
+        bToken: vars.bToken,
+        name: item.artifact.name,
+        id: item.id,
+        nameOfTheEnvironment: nameOfTheEnvironment,
+        applicationStatus: item.application.status
+    }    
+)]]></ee:set-variable>
+					<ee:set-variable variableName="hybridApps" ><![CDATA[%dw 2.0
+output application/java
+var orgID = vars.orgID
+var env = namesOf(payload)[0]
+var nameOfTheEnvironment = ((vars.environmentsWithName filter ((item, index) -> item.id == env)).name)[0] as String
+---
+payload[0].standAloneHybApps map (
+    (item, index) -> 
+    {
+        orgID: orgID,
+        environment : env,
+        deploymentType: "HYB",
+        bToken: vars.bToken,
+        name: item.artifact.name,
+        id: item.id,
+        nameOfTheEnvironment: nameOfTheEnvironment,
+        applicationStatus: item.lastReportedStatus
+    }    
+)]]></ee:set-variable>
+					<ee:set-variable variableName="processingEnvironment" ><![CDATA[%dw 2.0
+output application/java
+---
+namesOf(payload)[0]]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+			<ee:transform doc:name="Set File Path and check if applicaitons are there to be processed" doc:id="e86c1acc-d49b-4f80-922f-ee3bbba38f89" >
+				<ee:message >
+				</ee:message>
+				<ee:variables >
+					<ee:set-variable variableName="filePath" ><![CDATA[%dw 2.0
+output application/java
+var env = vars.processingEnvironment as String
+var nameOfTheEnvironment = ((vars.environmentsWithName filter ((item, index) -> item.id == env)).name)[0] as String
+---
+p('filePathOnDisk.outputOrgDirectory') ++ (vars.orgID as String) ++ p('filePathOnDisk.separator') ++ nameOfTheEnvironment ++ p('filePathOnDisk.outputCSVFileExtension')]]></ee:set-variable>
+					<ee:set-variable variableName="applicationsAvailableToBeProcessed" ><![CDATA[%dw 2.0
+output application/java
+---
+(sizeOf(vars.ch1Apps) > 0) or (sizeOf(vars.ch2Apps) > 0) or (sizeOf(vars.rtfApps) > 0) or (sizeOf(vars.hybridApps) > 0)]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+			<choice doc:name="Choice" doc:id="722a2cec-c440-41d7-b038-5719ffeb9fd7" >
+				<when expression="#[vars.applicationsAvailableToBeProcessed]">
+				<file:write doc:name="Create file with Header for the Environment" doc:id="7e8c7bcb-d560-4fa9-90f8-eb97a550e245" config-ref="File_Config" path="#[vars.filePath]">
+						<file:content ><![CDATA[#["ApplicationName,AppID,DeploymentType,ApplicationStatus,groupId,artifactId,currentVersion,java-17-supported-current,java-8-supported-current,java-11-supported-current,latestVersion,java-17-supported-latest,java-8-supported-latest,java-11-supported-latest
+"]]]></file:content>
+					</file:write>
+					<foreach doc:name="For Each CH1 Applications" doc:id="44d804d0-c19d-4f80-a2da-c273f475e7b2" collection="#[vars.ch1Apps]">
+						<vm:publish doc:name="Publish to CH1 Queue" doc:id="52406fb9-57bd-4fdc-8cc5-20d91de2de5e" config-ref="VM_Config" queueName="ch1" />
+			</foreach>
+					<foreach doc:name="For Each CH2 Applications" doc:id="dbb72ae4-f3f4-45d0-99ce-43080c30614f" collection="#[vars.ch2Apps]">
+				<vm:publish queueName="ch2" doc:name="Publish to CH2 Queue" doc:id="03ffb8f5-a9fe-4325-9ca2-e5b87e9f0fc8" config-ref="VM_Config" />
+			</foreach>
+					<foreach doc:name="For Each RTF Applications" doc:id="40752fbc-a396-470d-8773-be7e0ec7a8b2" collection="#[vars.rtfApps]">
+				<vm:publish queueName="rtf" doc:name="Publish to RTF Queue" doc:id="7625a1b2-cf87-4ff8-b3de-740d7cf7010e" config-ref="VM_Config" />
+			</foreach>
+					<foreach doc:name="For Each Hybrid Applications" doc:id="f7f4f5b0-bb88-484a-8d39-9f8279e56337" collection="#[vars.hybridApps]">
+						<vm:publish queueName="hybrid" doc:name="Publish to Hybrid Queue" doc:id="f3cdc92c-35f1-40f0-a37a-dae4455b978a" config-ref="VM_Config" />
+			</foreach>
+				</when>
+				<otherwise >
+					<logger level="INFO" doc:name="Logger" doc:id="1dea987f-a9c5-48c7-84f5-872350173478" message="No Applications of any type for the environment #[vars.processingEnvironment]"/>
+				</otherwise>
+			</choice>
+		</foreach>
+	</flow>
+	<flow name="createOrgStatusData" doc:id="ca88f327-356d-4d55-b8dd-99a4a241747f" >
+		<ee:transform doc:name="Initialize orgStatus &amp; envApplications" doc:id="5f71d8bd-48a6-4bd1-99c6-f847479db80f" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="orgStatus" ><![CDATA[%dw 2.0
+output application/java
+var orgID = vars.orgID
+---
+orgID : orgID]]></ee:set-variable>
+				<ee:set-variable variableName="envApplications" ><![CDATA[%dw 2.0
+output application/java
+var orgID = vars.orgID
+---
+orgID : orgID]]></ee:set-variable>
+				<ee:set-variable variableName="failedEnvironments" ><![CDATA[%dw 2.0
+output application/java
+---
+[]]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<foreach doc:name="For Each Environment" doc:id="97e0c26b-d8b4-437a-941b-76efbc862f7f" collection="#[vars.environments]">
+			<flow-ref doc:name="Get List Of Applications" doc:id="4c955f79-993b-4da1-974d-0017a9bf63e2" name="getListOfApplications"/>
+		</foreach>
+		<logger level="DEBUG" doc:name="Logger" doc:id="134ef44c-cee9-4659-84e2-dcfea0c206db" message="#[vars.environments]"/>
+		<logger level="INFO" doc:name="Logger" doc:id="34d804fc-50a6-45b4-8ac1-abe995ebfe9a" message="#[vars.failedEnvironments]"/>
+		<set-variable value="#[vars.environments -- vars.failedEnvironments]" doc:name="Remove Environments that do not have access" doc:id="f4a79b93-8013-4020-b905-615a40576fb7" variableName="environments"/>
+		<validation:is-not-empty-collection doc:name="Environments available to be processed?" doc:id="5d99a253-07e4-46e3-9b2a-a9e86a3dfac8" values="#[vars.environments]" message='#["No Environments available to process - Terminating Report Generation[Check the parameters - filterEnvironments and environmentsToBeProcessed in the config.yaml file]"]'/>
+		<error-handler >
+			<on-error-propagate enableNotifications="false" logException="false" doc:name="On Error Propagate" doc:id="c18254a1-dd91-4377-b205-e01a2bea504b" type="VALIDATION:EMPTY_COLLECTION">
+				<ee:transform doc:name="Transform Message" doc:id="c7d4c1cc-ca13-47d4-933c-d36674ea6986">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+Response: error.detailedDescription]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="getListOfApplications" doc:id="a0855f25-8300-4e17-9d1e-65c0f09b8f07" >
+	<set-variable value='#[payload]' doc:name="Set Variable" doc:id="a68fc705-2abf-4bc7-9da3-7c5ccf24d332" variableName="env" />
+			<logger level="DEBUG" doc:name="Logger" doc:id="0123d9c5-ba7a-4a26-8a07-37fdd1c0c529" message="####### Gathering Applicaitons for Environment - #[vars.env] in Org - #[vars.orgID]"/>
+			<try doc:name="Try" doc:id="7ee32d62-c889-4cb3-80ca-f6cc81a5b1a5" >
+				<http:request method="GET" doc:name="Request" doc:id="a00e2d64-bbd3-4e4d-adb7-d8801d913241" config-ref="AnypointPlatform_HTTP_Request_configuration" path="${anypointplatform.armuiapplications}" sendBodyMode="NEVER">
+				<http:headers><![CDATA[#[%dw 2.0
+output application/java
+---
+{
+	"X-ANYPNT-ENV-ID" : vars.env,
+	"X-ANYPNT-ORG-ID" : vars.orgID
+}]]]></http:headers>
+			</http:request>
+				<ee:transform doc:name="Extract &amp; Group Applications By Type" doc:id="43d912f3-43b8-4825-8451-927423015fa9">
+				<ee:message>
+				</ee:message>
+				<ee:variables>
+					<ee:set-variable variableName="standAloneHybApps"><![CDATA[%dw 2.0
+output application/java
+---
+payload.data filter (
+    (item, index) -> (
+        item.target."type" == "SERVER" or 
+        item.target."type" == "CLUSTER"
+        ) and 
+        (
+            item.target."runtimeVersion" startsWith "4"
+        )
+    )]]></ee:set-variable>
+					<ee:set-variable variableName="ch1Apps"><![CDATA[%dw 2.0
+output application/java
+---
+payload.data filter (
+    (item, index) -> (
+        (item.target."type" == "CLOUDHUB") and 
+        (item.muleVersion.version startsWith "4")
+        )
+    )]]></ee:set-variable>
+					<ee:set-variable variableName="ch2Apps"><![CDATA[%dw 2.0
+output application/java
+---
+payload.data filter (
+    (item, index) -> (
+        (
+            (item.target."subtype" == "shared-space") or (item.target."subtype" == "private-space")
+        )
+        and
+        (item.muleVersion.version startsWith "4")
+        )
+    )]]></ee:set-variable>
+					<ee:set-variable variableName="rtfApps"><![CDATA[%dw 2.0
+output application/java
+---
+payload.data filter (
+    (item, index) -> (
+        (item.target."subtype" == "runtime-fabric")
+        and
+        (item.muleVersion.version startsWith "4")
+        )
+    )]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+				<ee:transform doc:name="Set envApplications &amp; orgStatus" doc:id="08329a30-7472-4375-8fba-4a369ea7c9d0">
+				<ee:message>
+				</ee:message>
+				<ee:variables>
+					<ee:set-variable variableName="envApplications"><![CDATA[%dw 2.0
+output application/java
+var env = vars.env
+var envApplications = vars.envApplications
+var ch1Apps = vars.ch1Apps
+var ch2Apps = vars.ch2Apps
+var rtfApps = vars.rtfApps
+var standAloneHybApps = vars.standAloneHybApps
+---
+envApplications ++ {
+	(env): {
+		ch1Apps: vars.ch1Apps,
+		ch2Apps: vars.ch2Apps,
+		rtfApps: vars.rtfApps,
+		standAloneHybApps: vars.standAloneHybApps
+	}
+	
+}]]></ee:set-variable>
+					<ee:set-variable variableName="orgStatus"><![CDATA[%dw 2.0
+output application/java
+var env = vars.env
+var envApplications = vars.envApplications
+var ch1Apps = vars.ch1Apps
+var ch2Apps = vars.ch2Apps
+var rtfApps = vars.rtfApps
+var standAloneHybApps = vars.standAloneHybApps
+var orgStatus = vars.orgStatus
+var nameOfTheEnvironment = ((vars.environmentsWithName filter ((item, index) -> item.id == env)).name)[0]
+---
+orgStatus ++ 
+{
+		(env) : 
+		{
+			nameOfTheEnvironment: nameOfTheEnvironment,
+			totalApplications : payload.total,
+			totalMule4StandAloneHybApps: sizeOf(standAloneHybApps),
+			succPrcdMule4StandAloneHybApps: 0,
+			failPrcdMule4StandAloneHybApps: 0,
+			totalMule4CH1Apps: sizeOf(ch1Apps),
+			succPrcdMule4CH1Apps: 0,
+			failPrcdMule4CH1Apps: 0,
+			totalMule4CH2Apps: sizeOf(ch2Apps),
+			succPrcdMule4CH2Apps: 0,
+			failPrcdMule4CH2Apps:0,
+			totalMule4RTFApps: sizeOf(rtfApps),
+			succPrcdMule4RTFApps: 0,
+			failPrcdMule4RTFApps:0
+		}
+}]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+				<error-handler >
+					<on-error-continue enableNotifications="false" logException="false" doc:name="On Error Continue" doc:id="03dee03e-84e6-4297-a0b2-d3d5663b2154" type="HTTP:INTERNAL_SERVER_ERROR">
+						<logger level="ERROR" doc:name="Logger" doc:id="9901637b-b31c-495c-9a9b-48dfdaa569e7" message='#[vars.env ++ " not having required access to process applications"]'/>
+						<set-variable value="#[vars.failedEnvironments ++ [vars.env]]" doc:name="Set failedEnvironments Variable" doc:id="b4755097-ecb7-46dd-8541-2d442c3d4e5f" variableName="failedEnvironments"/>
+					</on-error-continue>
+				</error-handler>
+			</try>
+			<logger level="DEBUG" doc:name="Logger" doc:id="6f1337b8-f2f9-4269-bf02-a90ff2787ec9" message="#[vars.orgStatus]"/>
+	</flow>
+</mule>

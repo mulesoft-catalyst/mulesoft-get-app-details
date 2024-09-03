@@ -1,0 +1,16 @@
+Extension artifact ID,java-17-supported
+mule-client-id-enforcement-extension,1.2.0
+mule-cors-extension,1.3.0
+mule-event-authentication-extension,1.1.0
+mule-federation-extension,1.4.0
+mule-http-policy-transform-extension,3.2.0
+mule-http-proxy-extension,1.2.0
+mule-ip-filter-extension,2.1.0
+mule-json-threat-protection-extension,1.2.0
+mule-jwt-extension,1.3.0
+mule-rest-validator-extension,2.3.0
+mule-soap-fault,2.1.0
+mule-throttling-extension,3.1.0
+mule-tokenization-extension,1.2.0
+mule-wsdl-functions-extension,1.2.0
+mule-xml-threat-protection-extension,1.2.0

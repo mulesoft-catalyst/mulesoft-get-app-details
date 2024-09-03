@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_36e5f93b_2fcc_498a_8b29_408d98b67406_Input_Variables_bToken = Any
+

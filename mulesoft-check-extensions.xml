@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+	<flow name="generateCSVReportForExtensions" doc:id="0dd2b196-6a36-42fb-903b-d269afb9487e" >
+		<file:read doc:name="Read CSV File containing Extensions" doc:id="b67a703c-7f66-48ed-ad54-70afa497ec08" config-ref="File_Config" path="${mule.home}/apps/${app.name}/mulesoft-gateway-extensions.csv" outputMimeType="application/csv" target="csvExtensions"/>
+		<ee:transform doc:name="Transform Message" doc:id="855702be-9f9b-4d52-bb21-2624b3332916" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="minJ17ExtensionSupport" ><![CDATA[%dw 2.0
+var csvExtensions = vars.csvExtensions
+var currentExtension = payload.artifactId
+var filterCurrentExtensionFromCSV = (csvExtensions filter (value, index) -> (value."Extension artifact ID" == currentExtension))
+output application/java
+---
+filterCurrentExtensionFromCSV[0]."java-17-supported"]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="3514ff5f-39a4-46c4-80f3-ce464840f689" message='#["Extension " ++ payload.artifactId ++ " minimum support for Java-17 starts at " ++ vars.minJ17ExtensionSupport]'/>
+		<ee:transform doc:name="Transform Message" doc:id="8ccc2329-a812-4a36-9871-f904956cca44" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="applicationReport" ><![CDATA[%dw 2.0
+output application/java
+import convVersionStrToNum,convVersionNumToStr from commonUtils::functions
+var minJ17ExtensionSupport = vars.minJ17ExtensionSupport
+var j17ExtensionComp = convVersionStrToNum(payload.version) >= convVersionStrToNum(minJ17ExtensionSupport)
+---
+vars.applicationReport +
+{
+	ApplicationName:payload.ApplicationName,
+	AppID: payload.AppID,
+	DeploymentType: payload.DeploymentType,
+	ApplicationStatus: payload.ApplicationStatus,
+    groupId: payload.groupId,
+    artifactId: payload.artifactId,
+    currentVersion: payload.version,
+    "java-17-supported-current":j17ExtensionComp,
+    "java-8-supported-current":true,
+    "java-11-supported-current":"NA-Exchange",
+    latestVersion:  "NA-Exchange",
+    "java-17-supported-latest": "NA-Exchange",
+    "java-8-supported-latest": "NA-Exchange",
+    "java-11-supported-latest": "NA-Exchange"
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+	</flow>
+</mule>

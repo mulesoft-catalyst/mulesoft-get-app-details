@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_1a3b0780_7a62_43e0_b181_eb18abd7901f_Output_Variables_exchangeURI = Any
+
