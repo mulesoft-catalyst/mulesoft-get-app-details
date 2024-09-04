@@ -4,7 +4,7 @@ httpListener:
   anypointplatform:
     host: "anypoint.mulesoft.com"
     csorgpath: "/accounts/api/cs/organizations/"
-    environments: "/environments?&limit=100"
+    environments: "/environments?&limit=200"
   armuiapplications: "/armui/api/v1/applications"
   ch1applications: "/cloudhub/api/organizations/"
   exchangebasepath: "exchange/api/v2/assets/"
