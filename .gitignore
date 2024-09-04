@@ -1,10 +1,9 @@
 /target/
 # Eclipse files
-.classpath
-.project
+#.classpath
+#.project
 .settings
 /workspace/
 
 # Mac
 .DS_Store
-
