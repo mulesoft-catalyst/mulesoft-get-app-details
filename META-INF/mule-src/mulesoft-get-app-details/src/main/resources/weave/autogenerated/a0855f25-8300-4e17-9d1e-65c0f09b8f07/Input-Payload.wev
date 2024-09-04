@@ -1,6 +1,0 @@
-%dw 2.0
-
-type auto_a0855f25_8300_4e17_9d1e_65c0f09b8f07_Input_Payload = {|  |} {"typeAlias": "Object",
-"class": "java.lang.Object",
-"typeId": "java.lang.Object"}
-

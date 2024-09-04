@@ -1,4 +1,0 @@
-%dw 2.0
-
-type auto_b0a7a600_098a_4546_9c49_9b4df221e83d_Output_Variables_currentVersionExchangeResponse = Any
-

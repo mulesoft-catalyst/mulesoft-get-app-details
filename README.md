@@ -1,2 +1,2 @@
-# mulesoft-get-app-details
-Application downloads the artifacts in an Organization and creates a Java Compatibility report based on the dependencies of the applications
+# mulesoft-get-org-details
+Application downloads the artifacts in an Organization and creates a Java Compatibility report for the dependencies

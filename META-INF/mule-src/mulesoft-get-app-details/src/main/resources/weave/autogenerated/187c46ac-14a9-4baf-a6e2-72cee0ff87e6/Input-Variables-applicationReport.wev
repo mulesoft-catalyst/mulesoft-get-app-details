@@ -1,4 +1,0 @@
-%dw 2.0
-
-type auto_187c46ac_14a9_4baf_a6e2_72cee0ff87e6_Input_Variables_applicationReport = Array<Nothing>
-

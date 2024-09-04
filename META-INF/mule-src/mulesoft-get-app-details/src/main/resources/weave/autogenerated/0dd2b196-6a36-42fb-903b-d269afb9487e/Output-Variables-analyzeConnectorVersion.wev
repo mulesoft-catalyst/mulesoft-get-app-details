@@ -1,4 +1,0 @@
-%dw 2.0
-
-type auto_0dd2b196_6a36_42fb_903b_d269afb9487e_Output_Variables_analyzeConnectorVersion = Any
-
