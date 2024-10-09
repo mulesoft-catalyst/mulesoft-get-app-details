@@ -1,0 +1,110 @@
+#%RAML 1.0
+title: New API
+baseUri: /v1/getOrgDetails
+protocols:
+  - HTTP
+  - HTTPS
+/generateAppDependencyReport:
+  get:
+    description: |-
+      The service would trigger gathering action to collect Application dependencies in an Organization. The response are the details of the Organization, Environment and counts of application along with their running status,
+
+      If the action is already triggered, it sends the response of "getOrgStatus" service
+    headers:
+      orgID:
+        example: Example
+        type: string
+      bToken:
+        example: Example
+        type: string
+    body: {}
+    responses:
+      "200":
+        body:
+          application/json:
+            example:
+              strict: true
+              value:
+                orgID: f76a844d-866d-46d5-b3f6-b09495f4d599
+                environmentDetails:
+                  -
+                    environmentID: 8c1824f3-b435-4664-b2e1-56ad1791e6d1
+                    environmentName: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+                    totalCH1Applications: 0
+                    totalRunningCH1Applications: 0
+                  -
+                    environmentID: 93f2fe24-74c4-471d-a288-dcea25c486d3
+                    environmentName: Design
+                    totalCH1Applications: 0
+                    totalRunningCH1Applications: 0
+                  -
+                    environmentID: 8ee07911-e2f7-47f1-a89a-99e9369ed8e3
+                    environmentName: QA
+                    totalCH1Applications: 158
+                    totalRunningCH1Applications: 91
+                  -
+                    environmentID: 5a1a3ad7-446f-427a-a436-b31cab146a2c
+                    environmentName: Sandbox
+                    totalCH1Applications: 6
+                    totalRunningCH1Applications: 0
+                  -
+                    environmentID: e51cb577-c2e8-496d-b589-45072297ebb3
+                    environmentName: TEST
+                    totalCH1Applications: 4
+                    totalRunningCH1Applications: 1
+                comment: Use the OrgID for the service getStatusForOrg to get the status of the file Output process
+                status: PROCESSING
+            type: object
+    securedBy: []
+/getFileForOrg:
+  get:
+    headers:
+      orgID:
+        example: Example
+        type: string
+    responses:
+      "200":
+        description: "File containing the information from the Organization "
+        body: {}
+/getOrgStatus:
+  get:
+    description: The response is JSON containing details of the Organization, Environment and individual gathering  status.
+    headers:
+      orgID:
+        example: Example
+        type: string
+    responses:
+      "200":
+        body:
+          application/json:
+            example:
+              strict: true
+              value:
+                ordID: f76a844d-866d-46d5-b3f6-b09495f4d599
+                CH1Status:
+                  8c1824f3-b435-4664-b2e1-56ad1791e6d1: Completed 0 of 0
+                  93f2fe24-74c4-471d-a288-dcea25c486d3: Completed 0 of 0
+                  8ee07911-e2f7-47f1-a89a-99e9369ed8e3: Completed 91 of 91
+                  5a1a3ad7-446f-427a-a436-b31cab146a2c: Completed 0 of 0
+                  e51cb577-c2e8-496d-b589-45072297ebb3: Completed 1 of 1
+                CH2Status:
+                  8c1824f3-b435-4664-b2e1-56ad1791e6d1: Completed 0 of 0
+                  93f2fe24-74c4-471d-a288-dcea25c486d3: Completed 0 of 0
+                  8ee07911-e2f7-47f1-a89a-99e9369ed8e3: Completed 0 of 0
+                  5a1a3ad7-446f-427a-a436-b31cab146a2c: Completed 0 of 0
+                  e51cb577-c2e8-496d-b589-45072297ebb3: Completed 0 of 0
+                RTFStatus:
+                  8c1824f3-b435-4664-b2e1-56ad1791e6d1: Completed 0 of 0
+                  93f2fe24-74c4-471d-a288-dcea25c486d3: Completed 0 of 0
+                  8ee07911-e2f7-47f1-a89a-99e9369ed8e3: Completed 0 of 0
+                  5a1a3ad7-446f-427a-a436-b31cab146a2c: Completed 0 of 0
+                  e51cb577-c2e8-496d-b589-45072297ebb3: Completed 0 of 0
+                comment: Use the OrgID for the service getFileForOrg to get the Output file containing List of Dependencies
+            type: object
+/removeAppDependencyReport:
+  delete:
+    description: "The service would remove the files and Status for the mentioned Organization. "
+    headers:
+      orgID:
+        example: Example
+        type: string

@@ -6,7 +6,7 @@ http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/fil
     <http:listener-config name="mulesoft-get-org-details-httpListenerConfig">
         <http:listener-connection host="0.0.0.0" port="${httpListener.port}" />
     </http:listener-config>
-    <apikit:config name="mulesoft-get-org-details-config" api="resource::f76a844d-866d-46d5-b3f6-b09495f4d599:mulesoft-get-org-details:1.0.0:raml:zip:mulesoft-get-org-details.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <apikit:config name="mulesoft-get-org-details-config" api="api/mulesoft-get-org-details.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
     <configuration-properties doc:name="Configuration properties" doc:id="df6d387c-f6ba-4401-8ee6-f01a642cbd0b" file="config.yaml" />
     <os:config name="ObjectStore_Config_Reconnection" doc:name="ObjectStore Config" doc:id="a54caca0-e059-42b7-9d8c-ae5b73de4959">
         <os:connection />
